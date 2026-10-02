@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bakery Menu Info</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#2f666b; --card:#e8ffc8; --pic:#f9de70; --ink:#111;
+  --font:"Montserrat","Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);padding:16px}
+header{max-width:1100px;margin:0 auto 20px;text-align:center;color:var(--card)}
+h1{font-size:1.6rem;font-weight:800;margin:0 0 12px}
+.langs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.langs button{font:inherit;font-weight:600;padding:10px 16px;border-radius:999px;border:2px solid var(--card);background:transparent;color:var(--card);cursor:pointer;min-height:44px}
+.langs button[aria-pressed="true"]{background:var(--card);color:var(--ink)}
+.langs button:focus-visible{outline:3px solid var(--pic);outline-offset:2px}
+main{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.card{background:var(--card);border-radius:28px;padding:22px 20px 24px;display:flex;flex-direction:column;gap:16px}
+.title{display:flex;align-items:center;gap:10px}
+.title::before,.title::after{content:"";flex:1;height:3px;background:var(--ink)}
+.title h2{margin:0;font-size:1.5rem;font-weight:800;text-align:center;line-height:1.15}
+.pic{background:var(--pic);border-radius:24px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pic img{width:100%;height:100%;object-fit:contain;padding:6%}
+.pic span{transform:rotate(-20deg);font-size:1.1rem}
+hr{border:0;border-top:3px solid var(--ink);margin:0;width:100%}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:420px){.info{grid-template-columns:1fr}}
+h3{margin:0 0 6px;font-size:1.05rem;font-weight:800}
+.ing p{margin:0;font-size:.95rem;line-height:1.5}
+.nut dl{margin:0}
+.nut .row{display:flex;gap:12px;font-size:.95rem;line-height:1.7}
+.nut dd{margin:0;min-width:4.5em;font-weight:600}
+.nut dt{font-weight:400}
+.note{font-size:.75rem;margin:2px 0 0}
+.allergens ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.allergens li{display:flex;align-items:center;gap:6px;border:2px solid var(--ink);border-radius:999px;padding:4px 12px 4px 8px;font-size:.9rem;font-weight:600}
+.allergens li span[aria-hidden]{font-size:1.2rem}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="page-title">Bakery Menu</h1>
+  <div class="langs" id="langs" role="group" aria-label="Language"></div>
+</header>
+<main id="cards"></main>
+
+<script>
+/* ===== EDIT HERE: UI text per language ===== */
+const UI = {
+  en:{name:"English", title:"Bakery Menu", ing:"Ingredients List", nut:"Nutritional Facts", all:"Allergens", pic:"Picture of Item", serving:"Per serving",
+      n:{cal:"KCal",sugar:"Sugar",fiber:"Fiber",fat:"Fat",sodium:"Sodium"}},
+  fr:{name:"Français", title:"Menu de la boulangerie", ing:"Liste des ingrédients", nut:"Valeurs nutritionnelles", all:"Allergènes", pic:"Photo du produit", serving:"Par portion",
+      n:{cal:"Calories",sugar:"Sucres",fiber:"Fibres",fat:"Matières grasses",sodium:"Sodium"}},
+  zh:{name:"中文", title:"面包店菜单", ing:"配料表", nut:"营养成分", all:"过敏原", pic:"产品图片", serving:"每份",
+      n:{cal:"热量 (千卡)",sugar:"糖",fiber:"膳食纤维",fat:"脂肪",sodium:"钠"}},
+  it:{name:"Italiano", title:"Menu della panetteria", ing:"Elenco ingredienti", nut:"Valori nutrizionali", all:"Allergeni", pic:"Foto del prodotto", serving:"Per porzione",
+      n:{cal:"Calorie",sugar:"Zuccheri",fiber:"Fibre",fat:"Grassi",sodium:"Sodio"}},
+  es:{name:"Español", title:"Menú de la panadería", ing:"Lista de ingredientes", nut:"Información nutricional", all:"Alérgenos", pic:"Foto del producto", serving:"Por porción",
+      n:{cal:"Calorías",sugar:"Azúcares",fiber:"Fibra",fat:"Grasas",sodium:"Sodio"}}
+};
+
+/* Allergen icons + names per language */
+const ALLERGENS = {
+  gluten:{icon:"🌾", en:"Gluten", fr:"Gluten", zh:"麸质", it:"Glutine", es:"Gluten"},
+  dairy:{icon:"🥛", en:"Dairy", fr:"Produits laitiers", zh:"乳制品", it:"Latticini", es:"Lácteos"},
+  eggs:{icon:"🥚", en:"Eggs", fr:"Œufs", zh:"鸡蛋", it:"Uova", es:"Huevos"},
+  peanuts:{icon:"🥜", en:"Peanuts", fr:"Arachides", zh:"花生", it:"Arachidi", es:"Cacahuetes"},
+  soy:{icon:"🫘", en:"Soy", fr:"Soja", zh:"大豆", it:"Soia", es:"Soja"},
+  treenuts:{icon:"🌰", en:"Tree nuts", fr:"Fruits à coque", zh:"树坚果", it:"Frutta a guscio", es:"Frutos secos"}
+};
+
+/* ===== EDIT HERE: menu items (copy a block to add a 4th) =====
+   image: put a file path or URL (e.g. "croissant.jpg") to replace the yellow placeholder. */
+const ITEMS = [
+  { id:"croissant", image:"images/croissant.png",
+    nutrition:{cal:"270 kcal",sugar:"6 g",fiber:"2 g",fat:"14 g",sodium:"310 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Croissant",fr:"Croissant",zh:"牛角包",it:"Cornetto",es:"Croissant"},
+    ingredients:{
+      en:"Wheat flour, butter, milk, sugar, yeast, eggs, salt.",
+      fr:"Farine de blé, beurre, lait, sucre, levure, œufs, sel.",
+      zh:"小麦粉、黄油、牛奶、糖、酵母、鸡蛋、盐。",
+      it:"Farina di frumento, burro, latte, zucchero, lievito, uova, sale.",
+      es:"Harina de trigo, mantequilla, leche, azúcar, levadura, huevos, sal."}
+  },
+  { id:"sourdough", image:"images/sourdough.png",
+    nutrition:{cal:"180 kcal",sugar:"1 g",fiber:"2 g",fat:"1 g",sodium:"420 mg"},
+    allergens:["gluten"],
+    name:{en:"Sourdough Loaf",fr:"Pain au levain",zh:"酸面包",it:"Pane a lievito madre",es:"Pan de masa madre"},
+    ingredients:{
+      en:"Wheat flour, water, sourdough starter, salt.",
+      fr:"Farine de blé, eau, levain, sel.",
+      zh:"小麦粉、水、酵种、盐。",
+      it:"Farina di frumento, acqua, lievito madre, sale.",
+      es:"Harina de trigo, agua, masa madre, sal."}
+  },
+  { id:"muffin", image:"images/muffin.png",
+    nutrition:{cal:"340 kcal",sugar:"22 g",fiber:"1 g",fat:"15 g",sodium:"280 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Blueberry Muffin",fr:"Muffin aux myrtilles",zh:"蓝莓玛芬",it:"Muffin ai mirtilli",es:"Muffin de arándanos"},
+    ingredients:{
+      en:"Wheat flour, blueberries, sugar, butter, eggs, milk, baking powder, salt.",
+      fr:"Farine de blé, myrtilles, sucre, beurre, œufs, lait, levure chimique, sel.",
+      zh:"小麦粉、蓝莓、糖、黄油、鸡蛋、牛奶、泡打粉、盐。",
+      it:"Farina di frumento, mirtilli, zucchero, burro, uova, latte, lievito in polvere, sale.",
+      es:"Harina de trigo, arándanos, azúcar, mantequilla, huevos, leche, polvo de hornear, sal."}
+  },
+  { id:"pumpkinpie", image:"",
+    nutrition:{cal:"320 kcal",sugar:"22 g",fiber:"2 g",fat:"14 g",sodium:"260 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Pumpkin Pie",fr:"Tarte à la citrouille",zh:"南瓜派",it:"Torta di zucca",es:"Pastel de calabaza"},
+    ingredients:{
+      en:"Pumpkin, wheat flour, butter, sugar, eggs, evaporated milk, cinnamon, ginger, nutmeg, salt.",
+      fr:"Citrouille, farine de blé, beurre, sucre, œufs, lait évaporé, cannelle, gingembre, muscade, sel.",
+      zh:"南瓜、小麦粉、黄油、糖、鸡蛋、淡奶、肉桂、姜、肉豆蔻、盐。",
+      it:"Zucca, farina di frumento, burro, zucchero, uova, latte evaporato, cannella, zenzero, noce moscata, sale.",
+      es:"Calabaza, harina de trigo, mantequilla, azúcar, huevos, leche evaporada, canela, jengibre, nuez moscada, sal."}
+  },
+  { id:"applepie", image:"",
+    nutrition:{cal:"300 kcal",sugar:"20 g",fiber:"2 g",fat:"14 g",sodium:"240 mg"},
+    allergens:["gluten","dairy"],
+    name:{en:"Apple Pie",fr:"Tarte aux pommes",zh:"苹果派",it:"Torta di mele",es:"Pastel de manzana"},
+    ingredients:{
+      en:"Apples, wheat flour, butter, sugar, cinnamon, lemon juice, salt.",
+      fr:"Pommes, farine de blé, beurre, sucre, cannelle, jus de citron, sel.",
+      zh:"苹果、小麦粉、黄油、糖、肉桂、柠檬汁、盐。",
+      it:"Mele, farina di frumento, burro, zucchero, cannella, succo di limone, sale.",
+      es:"Manzanas, harina de trigo, mantequilla, azúcar, canela, zumo de limón, sal."}
+  },
+  { id:"creampuffs", image:"",
+    nutrition:{cal:"240 kcal",sugar:"15 g",fiber:"1 g",fat:"15 g",sodium:"90 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Cream Puffs",fr:"Choux à la crème",zh:"奶油泡芙",it:"Bignè alla crema",es:"Petisús de nata"},
+    ingredients:{
+      en:"Wheat flour, butter, eggs, milk, cream, sugar, vanilla, salt.",
+      fr:"Farine de blé, beurre, œufs, lait, crème, sucre, vanille, sel.",
+      zh:"小麦粉、黄油、鸡蛋、牛奶、奶油、糖、香草、盐。",
+      it:"Farina di frumento, burro, uova, latte, panna, zucchero, vaniglia, sale.",
+      es:"Harina de trigo, mantequilla, huevos, leche, nata, azúcar, vainilla, sal."}
+  },
+  { id:"tiramisu", image:"",
+    nutrition:{cal:"400 kcal",sugar:"28 g",fiber:"1 g",fat:"25 g",sodium:"90 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Tiramisu",fr:"Tiramisu",zh:"提拉米苏",it:"Tiramisù",es:"Tiramisú"},
+    ingredients:{
+      en:"Mascarpone, ladyfinger biscuits (wheat flour), eggs, sugar, espresso, cocoa powder.",
+      fr:"Mascarpone, biscuits à la cuillère (farine de blé), œufs, sucre, espresso, cacao en poudre.",
+      zh:"马斯卡彭奶酪、手指饼干（小麦粉）、鸡蛋、糖、浓缩咖啡、可可粉。",
+      it:"Mascarpone, savoiardi (farina di frumento), uova, zucchero, caffè espresso, cacao in polvere.",
+      es:"Mascarpone, bizcochos de soletilla (harina de trigo), huevos, azúcar, café espresso, cacao en polvo."}
+  },
+  { id:"cookie", image:"",
+    nutrition:{cal:"210 kcal",sugar:"14 g",fiber:"1 g",fat:"10 g",sodium:"150 mg"},
+    allergens:["gluten","dairy","eggs","soy"],
+    name:{en:"Chocolate Chip Cookie",fr:"Cookie aux pépites de chocolat",zh:"巧克力豆曲奇",it:"Biscotto con gocce di cioccolato",es:"Galleta con chips de chocolate"},
+    ingredients:{
+      en:"Wheat flour, butter, brown sugar, sugar, eggs, chocolate chips, baking soda, vanilla, salt.",
+      fr:"Farine de blé, beurre, cassonade, sucre, œufs, pépites de chocolat, bicarbonate de soude, vanille, sel.",
+      zh:"小麦粉、黄油、红糖、糖、鸡蛋、巧克力豆、小苏打、香草、盐。",
+      it:"Farina di frumento, burro, zucchero di canna, zucchero, uova, gocce di cioccolato, bicarbonato di sodio, vaniglia, sale.",
+      es:"Harina de trigo, mantequilla, azúcar moreno, azúcar, huevos, chips de chocolate, bicarbonato de sodio, vainilla, sal."}
+  },
+  { id:"cheesecake", image:"",
+    nutrition:{cal:"410 kcal",sugar:"28 g",fiber:"1 g",fat:"28 g",sodium:"340 mg"},
+    allergens:["gluten","dairy","eggs"],
+    name:{en:"Cheesecake",fr:"Cheesecake",zh:"芝士蛋糕",it:"Cheesecake",es:"Tarta de queso"},
+    ingredients:{
+      en:"Cream cheese, biscuit base (wheat flour), butter, sugar, eggs, sour cream, vanilla.",
+      fr:"Fromage à la crème, base de biscuit (farine de blé), beurre, sucre, œufs, crème aigre, vanille.",
+      zh:"奶油奶酪、饼干底（小麦粉）、黄油、糖、鸡蛋、酸奶油、香草。",
+      it:"Formaggio spalmabile, base di biscotto (farina di frumento), burro, zucchero, uova, panna acida, vaniglia.",
+      es:"Queso crema, base de galleta (harina de trigo), mantequilla, azúcar, huevos, crema agria, vainilla."}
+  }
+];
+/* ===== END EDITABLE DATA ===== */
+
+const NUT_ORDER = ["cal","sugar","fiber","fat","sodium"];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function render(lang){
+  const t = UI[lang];
+  document.documentElement.lang = lang === "zh" ? "zh-Hans" : lang;
+  document.getElementById("page-title").textContent = t.title;
+  document.title = t.title;
+  document.querySelectorAll("#langs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+  document.getElementById("cards").innerHTML = ITEMS.map(it => `
+    <article class="card" aria-labelledby="h-${it.id}">
+      <div class="title"><h2 id="h-${it.id}">${esc(it.name[lang])}</h2></div>
+      <div class="pic">${it.image ? `<img src="${esc(it.image)}" alt="${esc(it.name[lang])}">` : `<span>${esc(t.pic)}</span>`}</div>
+      <hr>
+      <div class="info">
+        <section class="ing"><h3>${esc(t.ing)}</h3><p>${esc(it.ingredients[lang])}</p></section>
+        <section class="nut"><h3>${esc(t.nut)}</h3>
+          <dl>${NUT_ORDER.map(k => `<div class="row"><dd>${esc(it.nutrition[k])}</dd><dt>${esc(t.n[k])}</dt></div>`).join("")}</dl>
+          <p class="note">${esc(t.serving)}</p>
+        </section>
+      </div>
+      <section class="allergens"><h3>${esc(t.all)}</h3>
+        <ul>${it.allergens.map(a => `<li><span aria-hidden="true">${ALLERGENS[a].icon}</span>${esc(ALLERGENS[a][lang])}</li>`).join("")}</ul>
+      </section>
+    </article>`).join("");
+  try{ localStorage.setItem("bakery-lang", lang); }catch(e){}
+}
+
+const langBox = document.getElementById("langs");
+Object.keys(UI).forEach(code => {
+  const b = document.createElement("button");
+  b.type = "button"; b.dataset.lang = code; b.textContent = UI[code].name;
+  b.setAttribute("lang", code === "zh" ? "zh-Hans" : code);
+  b.addEventListener("click", () => render(code));
+  langBox.appendChild(b);
+});
+
+let start = "en";
+try{ const s = localStorage.getItem("bakery-lang"); if(s && UI[s]) start = s; }catch(e){}
+render(start);
+</script>
+</body>
+</html>

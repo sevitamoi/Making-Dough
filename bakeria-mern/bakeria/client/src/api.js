@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+const BASE = import.meta.env.VITE_API_URL || ''; // only set this if the API lives on a different domain
 const j = async (url, opt = {}) => {
-  const r = await fetch('/api' + url, { headers: { 'Content-Type': 'application/json' }, ...opt });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'Request failed');
+  let r;
+  try { r = await fetch(BASE + '/api' + url, { headers: { 'Content-Type': 'application/json' }, ...opt }); }
+  catch { throw new Error('Cannot reach the server. Is the API running?'); }
+  const text = await r.text();
+  let d = null;
+  try { d = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
+  if (!r.ok || d === null) throw new Error(d?.error || `The server answered ${r.status} with no data. Is the API running at ${BASE || location.origin}/api ?`);
   return d;
 };
 export const api = {

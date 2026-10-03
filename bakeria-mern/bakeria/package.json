@@ -1,3 +1,4 @@
 {"name":"bakeria","private":true,"scripts":{
 "build":"cd client && npm install && npm run build",
-"start":"cd server && npm install && node index.js"}}
+"start":"cd server && npm install && node index.js",
+"reseed":"cd server && node reseed.js"}}

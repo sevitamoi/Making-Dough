@@ -19,7 +19,6 @@ main{max-width:1100px;margin:0 auto;padding:24px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
 .item,.panel,.stat{background:#fff;border:1px solid var(--line);border-radius:14px}
 .item{overflow:hidden;display:flex;flex-direction:column}
-.pic{height:96px;display:grid;place-items:center;font-size:48px}
 .body{padding:14px;display:flex;flex-direction:column;gap:8px;flex:1}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .price{font-weight:700}.ing{font-size:13px;color:#6e5668;margin:0}
@@ -50,3 +49,9 @@ input{width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;f
 .qrrow{display:flex;gap:20px;flex-wrap:wrap}.qrrow>div:last-child{flex:1;min-width:240px}
 #qr{padding:8px;background:#fff;border:1px solid var(--line);border-radius:10px;align-self:flex-start}
 .tools{display:flex;gap:10px;flex-wrap:wrap}.note{font-size:13px;color:#6e5668}
+.pic{height:160px;background:#f9de70;overflow:hidden}.pic img{width:100%;height:100%;object-fit:cover;display:block}
+.facts{font-size:13px;border-top:1px dashed var(--line);padding-top:6px}.facts summary{cursor:pointer;color:var(--plum);font-weight:700;padding:4px 0}
+.facts p{margin:6px 0}.facts dl{margin:6px 0 0}.facts dl div{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line)}
+.facts dt,.facts dd{margin:0}.facts dd{font-weight:700}
+.warn-note{margin:-6px 0 18px}.confirm.ready{background:var(--pist)}
+.pin{max-width:360px;margin:40px auto}

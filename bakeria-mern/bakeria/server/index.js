@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -6,9 +6,15 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { Ingredient, MenuItem, Order } from './models.js';
-import { seed } from './seed.js';
+import { MENU, seed } from './seed.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+// .env may live in server/ or in the project root (bakeria/); server/.env wins if both exist
+dotenv.config({ path: [path.join(here, '.env'), path.join(here, '../.env')] });
 
 const TZ = process.env.TZ_NAME || 'America/Toronto';
+const PIN = String(process.env.GRANDMA_PIN || '1234');
+if (!process.env.GRANDMA_PIN) console.warn('GRANDMA_PIN is not set: using the default 1234. Set it in .env before putting this online.');
 const MIN_PER_ORDER = 2, WAGE = 18, WASTE_RATE = 0.04; // savings assumptions: edit freely
 const app = express();
 app.use(cors(), express.json());
@@ -47,6 +53,27 @@ app.post('/api/orders', wrap(async (req, res) => {
     items: lines.map(({ recipe, ...l }) => l), total: lines.reduce((t, l) => t + l.price * l.qty, 0),
   });
   res.status(201).json(order);
+}));
+
+// Customer's own order status (by its unguessable id, so names/totals of other orders stay private)
+app.get('/api/track/:id', wrap(async (req, res) => {
+  const o = mongoose.isValidObjectId(req.params.id) && await Order.findById(req.params.id, 'number status').lean();
+  o ? res.json(o) : res.status(404).json({ error: 'Order not found.' });
+}));
+
+// Everything below is Grandma-only: needs the shared PIN in the x-pin header
+app.use('/api', (req, res, next) => req.get('x-pin') === PIN ? next() : res.status(401).json({ error: 'Wrong PIN' }));
+
+// One row per item sold, for spreadsheets / analysis
+app.get('/api/export.csv', wrap(async (_, res) => {
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const local = d => d ? new Date(d).toLocaleString('sv-SE', { timeZone: TZ }) : '';
+  const rows = [['order', 'placed_at', 'ready_at', 'minutes_to_ready', 'customer', 'status', 'item', 'qty', 'unit_price', 'line_total', 'order_total']];
+  for (const o of await Order.find().sort({ number: 1 }).lean()) {
+    const mins = o.doneAt ? Math.round((o.doneAt - o.createdAt) / 60000) : '';
+    for (const i of o.items) rows.push([o.number, local(o.createdAt), local(o.doneAt), mins, o.name, o.status, i.name, i.qty, i.price, (i.qty * i.price).toFixed(2), o.total.toFixed(2)]);
+  }
+  res.type('text/csv').attachment('bakeria-orders.csv').send(rows.map(r => r.map(q).join(',')).join('\n'));
 }));
 
 app.get('/api/orders', wrap(async (req, res) => {
@@ -94,7 +121,7 @@ app.post('/api/reset', wrap(async (_, res) => { await seed(false); res.json({ ok
 app.use('/api', (_, res) => res.status(404).json({ error: 'Not found' }));
 
 // Serve the built website (client/dist) from this same server, so /api is on the same domain
-const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), '../client/dist');
+const dist = path.join(here, '../client/dist');
 if (fs.existsSync(dist)) {
   app.use(express.static(dist));
   app.get('*', (_, res) => res.sendFile(path.join(dist, 'index.html')));
@@ -106,6 +133,14 @@ try {
   console.error('Could not connect to MongoDB. Check MONGO_URI in server/.env.\n', e.message);
   process.exit(1);
 }
-if (!(await MenuItem.countDocuments())) await seed(true);
-const PORT = process.env.PORT || 5000;
+// Menu in seed.js is the source of truth. New/removed items => full reseed (wipes orders + fake history).
+// Same items => just copy over edited prices/text so changes in seed.js show up on restart.
+const have = await MenuItem.distinct('slug');
+if (have.length !== MENU.length || MENU.some(m => !have.includes(m.slug))) {
+  console.log('Menu changed: reseeding menu, inventory and sample history');
+  await seed(true);
+} else {
+  await MenuItem.bulkWrite(MENU.map(m => ({ updateOne: { filter: { slug: m.slug }, update: { $set: m } } })));
+}
+const PORT = process.env.PORT || 5050; // not 5000: macOS AirPlay Receiver owns that port
 app.listen(PORT, () => console.log('Running on http://localhost:' + PORT));

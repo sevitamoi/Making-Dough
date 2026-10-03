@@ -7,8 +7,10 @@ export const Ingredient = model('Ingredient', new Schema({
 }));
 
 export const MenuItem = model('MenuItem', new Schema({
-  slug: { type: String, unique: true }, name: String, price: Number, emoji: String, bg: String,
-  description: String, allergens: [String],
+  slug: { type: String, unique: true }, name: String, price: Number, image: String,
+  description: String, ingredients: String, allergens: [String],
+  nutrition: { cal: String, sugar: String, fiber: String, fat: String, sodium: String }, // per serving
+  i18n: Schema.Types.Mixed, // { fr: { name, description, ingredients }, zh: …, it: …, es: … } (see menu-i18n.js)
   recipe: [{ key: String, qty: Number }], // what one item consumes from inventory
 }));
 

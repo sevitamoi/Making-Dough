@@ -1,19 +1,44 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { QRCodeSVG } from 'qrcode.react';
-import { api, money, usePoll } from '../api.js';
+import { api, getPin, money, setPin, usePoll, WRONG_PIN } from '../api.js';
 
 const hr12 = h => (h % 12 || 12) + (h < 12 ? 'am' : 'pm');
 const ago = t => Math.max(0, Math.round((Date.now() - new Date(t)) / 60000));
 
+// Shared PIN (GRANDMA_PIN in the server's .env) keeps customers out of the staff screen and its API
 export default function Dashboard() {
+  const [unlocked, setUnlocked] = useState(!!getPin());
+  return unlocked ? <Board onLocked={() => { setPin(null); setUnlocked(false); }} /> : <PinGate onOk={() => setUnlocked(true)} />;
+}
+
+function PinGate({ onOk }) {
+  const [pin, setP] = useState(''), [err, setErr] = useState('');
+  const submit = async e => {
+    e.preventDefault(); setPin(pin);
+    try { await api.inventory(); onOk(); }
+    catch (x) { setPin(null); setErr(x.message === WRONG_PIN ? 'That PIN is not right. Try again.' : x.message); }
+  };
+  return (
+    <main><form className="panel pin" onSubmit={submit}>
+      <h2>Grandma's dashboard</h2><label htmlFor="pin">Staff PIN</label>
+      <input id="pin" type="password" inputMode="numeric" autoComplete="current-password" autoFocus value={pin} onChange={e => setP(e.target.value)} />
+      {err && <p className="err" role="alert">{err}</p>}
+      <button className="btn full" disabled={!pin}>Open dashboard</button>
+    </form></main>
+  );
+}
+
+function Board({ onLocked }) {
   const [days, setDays] = useState(7);
-  const [stats, refStats] = usePoll(() => api.stats(days), [days]);
-  const [orders, refOrders] = usePoll(() => Promise.all([api.orders('status=pending'), api.orders('status=done&limit=6')]), []);
-  const [inv, refInv] = usePoll(api.inventory, []);
-  const [addr, setAddr] = useState(location.origin);
+  const [stats, refStats, e1] = usePoll(() => api.stats(days), [days]);
+  const [orders, refOrders, e2] = usePoll(() => Promise.all([api.orders('status=pending'), api.orders('status=done&limit=6')]), []);
+  const [inv, refInv, e3] = usePoll(api.inventory, []);
+  const [addr, setAddr] = useState(location.origin), [msg, setMsg] = useState('');
+  const err = e1 || e2 || e3;
+  useEffect(() => { if (err === WRONG_PIN) onLocked(); }, [err]); // eslint-disable-line
   const refresh = () => { refStats(); refOrders(); refInv(); };
-  if (!stats || !orders || !inv) return <main><p>Loading dashboard…</p></main>;
+  if (!stats || !orders || !inv) return <main><p>{err || 'Loading dashboard…'}</p></main>;
 
   const [pending, recent] = orders;
   const low = inv.filter(i => i.stock <= i.lowAt);
@@ -110,8 +135,12 @@ export default function Dashboard() {
           <div><label htmlFor="addr">Menu address</label>
             <input id="addr" value={addr} onChange={e => setAddr(e.target.value)} />
             <p className="note">To scan with a phone, replace "localhost" with your laptop's Wi-Fi address (for example http://192.168.1.20:5173).</p>
-            <div className="tools"><button className="btn sm" onClick={async () => { await api.seed(); refresh(); }}>Load sample data</button>
-              <button className="btn sm alt" onClick={async () => { await api.reset(); refresh(); }}>Clear all orders</button></div></div>
+            <div className="tools">
+              <button className="btn sm" onClick={() => api.exportCsv().catch(e => setMsg(e.message))}>Download orders (CSV)</button>
+              <button className="btn sm alt" onClick={async () => { if (confirm('Replace everything with 14 days of sample orders?')) { await api.seed(); refresh(); } }}>Load sample data</button>
+              <button className="btn sm alt" onClick={async () => { if (confirm('Delete ALL orders and refill stock? This cannot be undone.')) { await api.reset(); refresh(); } }}>Clear all orders</button>
+              <button className="btn sm alt" onClick={onLocked}>Lock</button></div>
+            {msg && <p className="err" role="alert">{msg}</p>}</div>
         </div>
       </section>
       <p className="note">Savings assume 2 min of staff time per hand-taken order at $18/hr, plus 4% of sales in avoided waste. Change these at the top of server/index.js.</p>
